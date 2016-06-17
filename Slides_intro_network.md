@@ -117,3 +117,5 @@ CSM.graph %>% plot # It won't be nice
 ```
 
 ![](Slides_intro_network_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+
+## We'll get something better, come and see!
