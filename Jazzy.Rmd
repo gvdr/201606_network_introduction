@@ -1,0 +1,206 @@
+---
+title: "The jazz of web"
+subtitle: "A network jam for R (R study group)"
+author: "Giulio Valentino Dalla Riva"
+date: "June 17, 2016"
+output: 
+  ioslides_presentation: 
+    highlight: espresso
+    incremental: yes
+    keep_md: yes
+    smaller: yes
+    widescreen: yes
+---
+
+## Webs
+
+Relational structures.
+
+- Food webs
+- Proteome, Diseosome, -ome -ome -ome
+- You name it
+- Jazz musicians collaborations
+
+## Webs
+
+Today is [jazz](https://cordame.bandcamp.com/album/satie-variations)!
+
+## R packages | What do we need?
+
+```{r,echo=T,warning=FALSE,message=FALSE,error=FALSE}
+library("igraph") # To handle the webs objects and plot them
+
+options(stringsAsFactors = FALSE) # To handle the web datasets
+```
+
+## R packages | What may we need?
+
+Useful but not today:
+
+- `library("dplyr")` to filter, select, mutate
+- `library("magrittr")` use pipes, everything is nicer ( `%>%` )
+- ...
+
+## Ingredients: interactions data | Better open
+
+List of edges of the network of Jazz musicians. Data compiled by members of our group. Please cite P.Gleiser and L. Danon , Adv. Complex Syst.6, 565 (2003).
+<http://deim.urv.cat/~alexandre.arenas/data/welcome.htm>
+
+```{r}
+Source.url <- "http://deim.urv.cat/~alexandre.arenas/data/xarxes/jazz.zip"
+```
+
+## Ingredients: interactions data | Better open
+
+What do we have
+
+```{r}
+temp.file <- tempfile()
+download.file(Source.url, temp.file, mode="wb")
+unzip(temp.file, list=TRUE)
+```
+
+## Ingredients: interactions data | Better open
+
+And what is that?
+
+```{r}
+unzip(temp.file, 'jazz.net')
+cat(readLines('jazz.net')[1:10], sep="\n")
+```
+
+## Ingredients: interactions data | Better open
+
+We like it
+
+```{r}
+edge.df <- read.table("jazz.net", skip = 3)
+unlink(temp.file)
+```
+
+Memento: igraph goes `from`, `to`
+
+## Ingredients| Knead the data to a web
+
+```{r}
+edge.df[1:10,]
+```
+
+## Ingredients| Knead the data to a web
+
+```{r}
+names(edge.df) <- c("Source","Sink","Weight")
+```
+
+## Ingredients| Knead the data to a web
+
+The igraph solo
+
+```{r}
+Jazz.graph  <-  graph.data.frame(edge.df[,c("Source","Sink")], directed=FALSE)
+```
+
+## Ingredients| A graph!
+
+What do we have?
+
+How many vertices in the graph? How many edges?
+```{r}
+vcount(Jazz.graph)
+ecount(Jazz.graph)
+```
+
+## Plot it!
+
+What do we have?
+
+```{r}
+plot(Jazz.graph)
+```
+
+
+## Plot it!
+
+That was blah...
+
+- Multiple links.
+- We made Edward Tufte sad.
+
+```{r}
+Jazz.graph <- simplify(Jazz.graph)
+```
+
+## What do we want to know?
+
+Well, I thought about assortativity (homophyly):
+
+```{r}
+Jazz.a <- assortativity_degree(Jazz.graph, directed = FALSE)
+Jazz.a
+```
+
+## And is that significant?
+
+Comparison with expected value from _null model_.
+
+## Null model
+
+A null model is as random as Jazz improvisation is.
+
+> True originality, and thus true creativity, never takes place in a historical vacuum; it is always rooted to something that has gone before.
+> Brad Mehldau - [Jazz's high stakes and tragic failures](http://www.bradmehldau.com/new-page)
+
+## Null model: constraints and randomization
+
+For example, let's keep fixed each node degree and change everything else:
+
+```{r}
+edge_random.df <- get.edgelist(Jazz.graph, name = FALSE)
+edge_random.df$Sink <- sample(edge.df$Sink)
+Jazz_random.graph  <-  graph.data.frame(edge_random.df, directed=FALSE)
+```
+
+## Null model: constraints and randomization
+
+We can wrap that in a function:
+
+```{r}
+randomize_fixdegrees <- function(graph){
+  edge_random.df <- get.edgelist(graph, name = FALSE)
+  edge_random.df[,2] <- sample(edge_random.df[,2])
+  random.graph  <-  graph.data.frame(edge_random.df, directed=FALSE)
+  return(random.graph)
+}
+```
+
+## Null model: constraints and randomization
+
+We can wrap that in a function:
+
+```{r}
+Rand.graph <- randomize_fixdegrees(Jazz.graph)
+Rand.a <- assortativity_degree(Rand.graph, directed = FALSE)
+Rand.a
+```
+
+## Simulated p-value fyeah! | Let's have a chat about p-values later
+
+We can wrap that in a function:
+
+```{r}
+N <- 420
+Rand.a.vec <- replicate(N,assortativity_degree(randomize_fixdegrees(Jazz.graph),FALSE))
+
+p.sim <- sum(Rand.a.vec > Jazz.a) / N
+p.sim
+```
+
+
+## Effect size plot
+
+We can wrap that in a function:
+
+```{r}
+hist(Rand.a.vec)
+abline(v = Jazz.a, col = "red", lwd = 3)
+```
