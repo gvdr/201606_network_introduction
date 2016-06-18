@@ -48,9 +48,9 @@ What do we have
 
 
 ```r
-temp.file <- tempfile()
-download.file(Source.url, temp.file, mode="wb")
-unzip(temp.file, list=TRUE)
+tempfile() -> temp.file # we create a temp file for the download,
+Source.url %>% download.file(temp.file, mode="wb") # download it from the web
+temp.file %>% unzip(list=TRUE) # and we use unzip to list what's in there
 ```
 
 ```
@@ -64,8 +64,11 @@ And what is that?
 
 
 ```r
-unzip(temp.file, 'jazz.net')
-cat(readLines('jazz.net')[1:10], sep="\n")
+temp.file %>% unzip('jazz.net') # we unzip the right file
+'jazz.net' %>% # and then
+  readLines %>% # we read as lines of text
+  .[1:10] %>% # we select the first 10 lines
+  cat(sep="\n") # and print them on a column
 ```
 
 ```
@@ -83,17 +86,20 @@ cat(readLines('jazz.net')[1:10], sep="\n")
 
 ## Ingredients: interactions data | Better open
 
-We like it
+We like it: it seems a data frame of pair of nodes (and maybe weights?)
 
 
 ```r
-edge.df <- read.table("jazz.net", skip = 3)
-unlink(temp.file)
+'jazz.net' %>%
+  read.table(skip = 3) -> # we read it as a table and skip the first 3 rows
+edge.df # and store it in `edge.df`
+
+temp.file %>% unlink # to keep things clean we unlink the temp file
 ```
 
-Memento: igraph goes `from`, `to`
-
 ## Ingredients| Knead the data to a web
+
+Let's take a look at it
 
 
 ```r
@@ -116,6 +122,39 @@ edge.df[1:10,]
 
 ## Ingredients| Knead the data to a web
 
+Wait, why three columns, which one is for the weights?
+
+Let's see what they contain
+
+
+```r
+edge.df[,1] %>% unique %>% head
+```
+
+```
+## [1] 1 2 3 4 5 6
+```
+
+```r
+edge.df[,2] %>% unique %>% head
+```
+
+```
+## [1]  8 24 35 42 46 60
+```
+
+```r
+edge.df[,3] %>% unique %>% head
+```
+
+```
+## [1] 1
+```
+
+## Ingredients| Knead the data to a web
+
+We can give some meaningful name to the variables
+
 
 ```r
 names(edge.df) <- c("Source","Sink","Weight")
@@ -127,8 +166,12 @@ The igraph solo
 
 
 ```r
-Jazz.graph  <-  graph.data.frame(edge.df[,c("Source","Sink")], directed=FALSE)
+edge.df[,c("Source","Sink")] %>% # we select the right columns
+  graph.data.frame(directed=FALSE) -> # call igraph (for the first time)
+Jazz.graph # and obtain a graph (an igraph object)!
 ```
+
+Memento: igraph goes `from`, `to` (or `source`, `sink`).
 
 ## Ingredients| A graph!
 
@@ -137,7 +180,7 @@ What do we have?
 How many vertices in the graph? How many edges?
 
 ```r
-vcount(Jazz.graph)
+Jazz.graph %>% vcount # count vertices
 ```
 
 ```
@@ -145,11 +188,22 @@ vcount(Jazz.graph)
 ```
 
 ```r
-ecount(Jazz.graph)
+Jazz.graph %>% ecount # count edges
 ```
 
 ```
 ## [1] 5484
+```
+
+or simply
+
+```r
+Jazz.graph %>% summary
+```
+
+```
+## IGRAPH UN-- 198 5484 -- 
+## + attr: name (v/c)
 ```
 
 ## Plot it!
@@ -158,10 +212,10 @@ What do we have?
 
 
 ```r
-plot(Jazz.graph)
+Jazz.graph %>% plot
 ```
 
-![](Jazzy_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](Jazzy_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 
 ## Plot it!
@@ -169,20 +223,29 @@ plot(Jazz.graph)
 That was blah...
 
 - Multiple links.
-- We made Edward Tufte sad.
-
-
-```r
-Jazz.graph <- simplify(Jazz.graph)
-```
+- Node position is not informative (we made Edward Tufte sad).
+- We can do much better!
 
 ## What do we want to know?
 
-Well, I thought about assortativity (homophyly):
+Well, What about assortativity (homophyly):
+do jazz musician with a lot of collaboration tend to collaborate more with other super collaborators or with not so collaborative musicians?
 
 
 ```r
-Jazz.a <- assortativity_degree(Jazz.graph, directed = FALSE)
+Jazz.graph %>% # we need to
+  simplify -> # remove duplicate edges!
+Jazz.graph
+
+Jazz.graph %>%
+  assortativity_degree(directed = FALSE) -> # compute assortativity
+Jazz.a
+```
+
+## And is that significant?
+
+
+```r
 Jazz.a
 ```
 
@@ -190,16 +253,16 @@ Jazz.a
 ## [1] 0.0202374
 ```
 
-## And is that significant?
+Is that a big, small, cute number?
 
-Comparison with expected value from _null model_.
+We need to compare it with the expected value from our _null model_.
 
 ## Null model
 
 A null model is as random as Jazz improvisation is.
 
-> True originality, and thus true creativity, never takes place in a historical vacuum; it is always rooted to something that has gone before.
-> Brad Mehldau - [Jazz's high stakes and tragic failures](http://www.bradmehldau.com/new-page)
+> _True originality, and thus true creativity, never takes place in a historical vacuum; it is always rooted to something that has gone before._  
+> **Brad Mehldau** - [Jazz's high stakes and tragic failures](http://www.bradmehldau.com/new-page)
 
 ## Null model: constraints and randomization
 
@@ -207,26 +270,27 @@ For example, let's keep fixed each node degree and change everything else:
 
 
 ```r
-edge_random.df <- get.edgelist(Jazz.graph, name = FALSE)
-edge_random.df$Sink <- sample(edge.df$Sink)
-```
+Jazz.graph %>%
+  get.edgelist(name = FALSE) -> # we get the table of edges
+edge_random.df
 
-```
-## Warning in edge_random.df$Sink <- sample(edge.df$Sink): Coercing LHS to a
-## list
-```
+edge_random.df[,2] %>%
+  sample -> # we shuffle all the sinks
+edge_random.df[,2]
 
-```r
-Jazz_random.graph  <-  graph.data.frame(edge_random.df, directed=FALSE)
+edge_random.df %>%
+  graph.data.frame(directed=FALSE) -> # and we create a shuffled web
+Jazz_random.graph
 ```
 
 ## Null model: constraints and randomization
 
-We can wrap that in a function:
+We better wrap all that in a function:
 
 
 ```r
 randomize_fixdegrees <- function(graph){
+  library(igraph) # we need the igraph library
   edge_random.df <- get.edgelist(graph, name = FALSE)
   edge_random.df[,2] <- sample(edge_random.df[,2])
   random.graph  <-  graph.data.frame(edge_random.df, directed=FALSE)
@@ -236,45 +300,66 @@ randomize_fixdegrees <- function(graph){
 
 ## Null model: constraints and randomization
 
-We can wrap that in a function:
+What assortativity value has a random graph with the same degree sequence of `Jazz.graph`?
 
 
 ```r
-Rand.graph <- randomize_fixdegrees(Jazz.graph)
-Rand.a <- assortativity_degree(Rand.graph, directed = FALSE)
-Rand.a
+Jazz.graph %>% # our observed graph
+  randomize_fixdegrees %>% # we shuffle it
+  assortativity_degree(directed = FALSE) # and compute its assortativity
 ```
 
 ```
-## [1] -0.02496473
+## [1] -0.005914914
+```
+
+## Null model: constraints and randomization
+
+And let's wrap it in a function, is always better!
+
+
+```r
+random_assortativity <- function(graph,randomizer){
+  Rand.graph <- randomizer(graph) # we shuffle our observed graph with our randomization function
+  Rand.a <- assortativity_degree(Rand.graph, directed = FALSE) # we compute its assortativity
+  return(Rand.a) # and we return it
+}
 ```
 
 ## Simulated p-value fyeah! | Let's have a chat about p-values later
 
-We can wrap that in a function:
+Let's run a simulation!
 
 
 ```r
-N <- 420
-Rand.a.vec <- replicate(N,assortativity_degree(randomize_fixdegrees(Jazz.graph),FALSE))
+N <- 420 # how many replications? 42 * 10!
 
-p.sim <- sum(Rand.a.vec > Jazz.a) / N
+Rand.a.vec <- replicate(N, # we replicate N times
+              random_assortativity(Jazz.graph,randomize_fixdegrees)) # our sampling
+
+# With which frequency the random graph had a higher assortativity?
+p.sim <- sum(Rand.a.vec > Jazz.a)/N # let's name it p
 p.sim
 ```
 
 ```
-## [1] 0.04047619
+## [1] 0.05952381
 ```
 
 
 ## Effect size plot
 
-We can wrap that in a function:
+You should not just and only trust `p`. Let's, for example, look also the distribution of the assortativity in our null model simulation
 
 
 ```r
 hist(Rand.a.vec)
-abline(v = Jazz.a, col = "red", lwd = 3)
+abline(v = Jazz.a, col = "red", lwd = 3) # and see where the observed is
 ```
 
-![](Jazzy_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](Jazzy_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
+
+
+## Well done!
+
+You made a discovery: jazz musician with a lot of collaboration tend to collaborate between themselves.
